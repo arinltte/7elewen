@@ -2,19 +2,17 @@
   <img src="7elewen/Assets.xcassets/AppIcon.appiconset/7elewenlogo_1024.png" alt="7elewen Logo" width="64" />
   <br />
   <h1 align="center">7elewen</h1>
-  <p align="center">Stay awake. 24/7.</p>
+  <p align="center">Stay awake. 24/7</p>
   <p align="center">
-    <a href="https://7elewen.vercel.app"><img src="https://img.shields.io/badge/Website-7elewen.vercel.app-orange?style=flat-square" alt="Website" /></a>
     <a href="https://github.com/arinltte/7elewen/releases/latest"><img src="https://img.shields.io/github/v/release/arinltte/7elewen?style=flat-square&color=blue" alt="Latest Release" /></a>
     <a href="https://github.com/arinltte/7elewen/blob/main/LICENSE"><img src="https://img.shields.io/github/license/arinltte/7elewen?style=flat-square&color=green" alt="License" /></a>
     <img src="https://img.shields.io/badge/macOS-26.0%2B-orange?style=flat-square" alt="macOS" />
-    <img src="https://img.shields.io/badge/Liquid%20Glass-native-blue?style=flat-square" alt="Liquid Glass" />
   </p>
 </p>
 
 ---
 
-**7elewen** is a lightweight macOS menu-bar utility that keeps your MacBook awake when you close the lid — so your downloads, builds, servers, and long-running tasks are never interrupted by sleep. Built natively with SwiftUI and Liquid Glass, it also dims and brightens your display automatically as the lid opens and closes, and can flip on Low Power Mode to save battery while the lid is shut.
+**7elewen** is a lightweight macOS menu-bar utility that keeps your MacBook awake when you close the lid — so your downloads, builds, servers, and long-running tasks are never interrupted by sleep. Built natively with SwiftUI, it dims and brightens your display automatically as the lid opens and closes, and can flip on Low Power Mode to save battery while the lid is shut.
 
 ---
 
@@ -24,8 +22,6 @@
 - **Lid-close sleep override** — Close your MacBook lid without it going to sleep. Your Mac keeps running **24/7**.
 - **Lid-angle sensing** — Reads the built-in lid angle sensor in real time to **auto-dim** the display as the lid closes and **auto-brighten** it as it opens.
 - **Low Power Mode** — Optionally enable Low Power Mode automatically while the lid is closed to save battery, then restore it when you open back up.
-- **Liquid Glass design** — A native macOS 26 (Tahoe) liquid glass panel with a subtle animated orange glow around the control when active.
-- **In-app updates** — Check for the latest release straight from the About screen; one click takes you to the GitHub release page.
 - **Fine-grained control** — Tune exactly when to dim and brighten (in degrees) and how far to dim, all from the settings pane.
 
 ---
@@ -99,7 +95,7 @@ killall cfprefsd
 
 ## 🌐 Website
 
-Visit the landing page at **[7elewen.vercel.app](https://7elewen.vercel.app)** for screenshots, downloads, and more.
+Visit the landing page at **[https://7elewen.vercel.app](https://7elewen.vercel.app)** for screenshots, downloads, and more.
 
 ---
 
