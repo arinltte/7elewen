@@ -4,7 +4,8 @@
 //
 //  Settings pane: lid-angle thresholds for auto dim/brighten, the dim target
 //  brightness, and optional Low Power Mode while the lid is shut. An "About"
-//  icon in the top-right opens the About pane. The dim and brighten thresholds
+//  icon in the top-right opens the About pane, which also holds the menu-bar
+//  icon and activation-glow personalization. The dim and brighten thresholds
 //  are kept at least one degree apart so they can never coincide.
 //
 

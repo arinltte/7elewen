@@ -16,30 +16,15 @@ import SwiftUI
 ///
 /// Device discovery is heuristic because Apple's lid-sensor HID device varies by
 /// model: first we match by product name / usage page, then fall back to probing
-/// the angle feature report. The `diagnostic` report surfaces what happened.
+/// the angle feature report.
 @MainActor
 @Observable
 final class LidAngleSensor {
     private(set) var angle = 120.0
-    private(set) var isAvailable = false
-    private(set) var tick: UInt = 0
-
-    /// Full diagnostic report from hardware detection.
-    @ObservationIgnored private(set) var diagnostic: LASDiagnostic?
 
     /// Invoked on the main actor whenever a fresh angle is read.
     var onAngleChange: ((Double) -> Void)?
 
-    var status: String {
-        guard isAvailable else { return diagnostic?.statusMessage ?? "Sensor not available" }
-        return switch angle {
-        case ..<5: "Lid closed"
-        case ..<45: "Lid slightly open"
-        case ..<90: "Lid partially open"
-        case ..<120: "Lid mostly open"
-        default: "Lid fully open"
-        }
-    }
 
     // nonisolated(unsafe) so deinit can reach these from its nonisolated context.
     @ObservationIgnored nonisolated(unsafe) private var hidDevice: IOHIDDevice?
@@ -52,16 +37,7 @@ final class LidAngleSensor {
     nonisolated private static let logger = Logger(subsystem: "arinltte.7elewen", category: "LidSensor")
 
     init() {
-        let diag = LASDiagnostic.run()
-        diagnostic = diag
-        switch diag.probeResult {
-        case .foundStandard(let device), .probedCandidate(let device, _):
-            hidDevice = device
-            isAvailable = true
-        case .notFound:
-            hidDevice = nil
-            isAvailable = false
-        }
+        hidDevice = Self.findLidSensor()
     }
 
     deinit {
@@ -75,7 +51,7 @@ final class LidAngleSensor {
     // MARK: Control
 
     func start() {
-        guard isAvailable, timer == nil, let device = hidDevice else { return }
+        guard timer == nil, let device = hidDevice else { return }
         guard IOHIDDeviceOpen(device, Self.noOptions) == kIOReturnSuccess else { return }
         isDeviceOpen = true
         // ~2.5 Hz: double the previous interval to cut polling cost further, at the
@@ -107,56 +83,21 @@ final class LidAngleSensor {
             Self.logger.info("lid angle \(raw, format: .fixed(precision: 1))")
         }
         angle = raw
-        tick &+= 1
         onAngleChange?(raw)
     }
 }
 
 // MARK: - Hardware discovery
 
-struct LASDiagnostic {
-    enum ProbeResult {
-        /// Found a device whose name/usage unambiguously identifies it as the lid sensor.
-        case foundStandard(IOHIDDevice)
-        /// No name match — fell back to reading the angle report to identify the device.
-        case probedCandidate(IOHIDDevice, String)
-        case notFound
-    }
-
-    let probeResult: ProbeResult
-    let candidateNames: [String]
-
-    var statusMessage: String {
-        switch probeResult {
-        case .foundStandard:
-            return "Lid angle sensor found"
-        case .probedCandidate(_, let name):
-            return "Lid sensor detected (\(name))"
-        case .notFound:
-            if candidateNames.isEmpty {
-                return "No Apple HID devices found — lid sensing unavailable"
-            }
-            return "Lid sensor not found among: \(candidateNames.joined(separator: ", "))"
-        }
-    }
-
-    static func run() -> LASDiagnostic {
+extension LidAngleSensor {
+    /// Finds the lid-angle HID device, matching by name/usage first, then
+    /// falling back to probing the angle feature report on non-input devices.
+    nonisolated static func findLidSensor() -> IOHIDDevice? {
         let devices = AppleHID.enumerate()
-        let names = devices.map { AppleHID.productName($0) }
-
         if let preferred = devices.first(where: { AppleHID.isLikelyLidSensor($0) }) {
-            return LASDiagnostic(probeResult: .foundStandard(preferred), candidateNames: names)
+            return preferred
         }
-
-        // Fall back: probe for the angle feature report on non-input devices.
-        for device in devices {
-            let name = AppleHID.productName(device)
-            if !AppleHID.isInputSurface(device), AppleHID.probeAngle(device) != nil {
-                return LASDiagnostic(probeResult: .probedCandidate(device, name), candidateNames: names)
-            }
-        }
-
-        return LASDiagnostic(probeResult: .notFound, candidateNames: names)
+        return devices.first(where: { !AppleHID.isInputSurface($0) && AppleHID.probeAngle($0) != nil })
     }
 }
 

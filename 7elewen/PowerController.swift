@@ -47,11 +47,6 @@ final class PowerController {
         }
     }
 
-    /// Reads `pmset -g` and reports whether lid sleep is currently disabled.
-    nonisolated static func isDisableSleepFlagSet() -> Bool {
-        Sudoers.sleepDisabled()
-    }
-
     // MARK: Low Power Mode
 
     /// Enables/disables Low Power Mode (passwordless). Returns true on success.

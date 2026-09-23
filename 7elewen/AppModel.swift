@@ -23,7 +23,6 @@ final class AppModel {
     private(set) var isBusy = false
     private(set) var lastError: String?
     private(set) var lidClosed = false
-    private(set) var staleSleepDisabled = false
 
     // MARK: User settings (persisted + observable)
 
@@ -48,6 +47,25 @@ final class AppModel {
         didSet { UserDefaults.standard.set(lowPowerModeWhenClosed, forKey: "lowPowerModeWhenClosed") }
     }
 
+    /// SF Symbol shown in the menu bar while the app is deactivated.
+    /// Defaults to "infinity" — the app logo.
+    var menuBarIconInactive: String = UserDefaults.standard.string(forKey: "menuBarIconInactive") ?? "infinity" {
+        didSet { UserDefaults.standard.set(menuBarIconInactive, forKey: "menuBarIconInactive") }
+    }
+
+    /// SF Symbol shown in the menu bar while the app is activated.
+    /// Defaults to "infinity" — the app logo.
+    var menuBarIconActive: String = UserDefaults.standard.string(forKey: "menuBarIconActive") ?? "infinity" {
+        didSet { UserDefaults.standard.set(menuBarIconActive, forKey: "menuBarIconActive") }
+    }
+
+    /// Effect animated around the main activate button while enabled:
+    /// "pulse" (expanding glow, the original), "circulate" (orbiting glow),
+    /// or "off".
+    var buttonEffect: String = UserDefaults.standard.string(forKey: "buttonEffect") ?? "pulse" {
+        didSet { UserDefaults.standard.set(buttonEffect, forKey: "buttonEffect") }
+    }
+
     // MARK: Dependencies
 
     let sensor = LidAngleSensor()
@@ -56,7 +74,12 @@ final class AppModel {
 
     private var savedBrightness: Float = 0.6
     private var wasLidClosed = false
-    private var didEnableLowPowerMode = false
+    /// Persisted (not just in-memory) so a crashed run — which never reaches
+    /// `shutdown()` — can reconcile Low Power Mode at next launch: true iff
+    /// *this* app enabled it for a closed lid.
+    private var didEnableLowPowerMode = UserDefaults.standard.bool(forKey: "didEnableLowPowerMode") {
+        didSet { UserDefaults.standard.set(didEnableLowPowerMode, forKey: "didEnableLowPowerMode") }
+    }
 
     var detailText: String {
         if let error = lastError { return error }
@@ -68,19 +91,18 @@ final class AppModel {
         max(brightenAngle, dimAngle + 5)
     }
 
-    /// Live display brightness (0…1) for the Control Center slider.
-    var displayBrightness: Double {
-        Double(brightness.current() ?? 0.5)
-    }
-
-    func setDisplayBrightness(_ value: Double) {
-        let clamped = min(max(value, 0), 1)
-        brightness.set(Float(clamped))
-        savedBrightness = Float(clamped)
-    }
-
     init() {
-        staleSleepDisabled = PowerController.isDisableSleepFlagSet()
+        // Crash safety net: `disablesleep` and `lowpowermode` are persistent
+        // system settings that survive force-quit, kernel panic, dead battery
+        // and reboot — all paths that never reach `shutdown()`. Reconcile them
+        // back to "normal sleep" here on every launch. A login item re-runs this
+        // at each boot (see _elewenApp), and the app re-enables the flags only
+        // while it is actually running.
+        power.restoreSleepSync()
+        if didEnableLowPowerMode {
+            didEnableLowPowerMode = false
+            power.restoreLowPowerModeSync()
+        }
     }
 
     // MARK: User actions
@@ -97,21 +119,6 @@ final class AppModel {
     func disable() {
         guard !isBusy else { return }
         Task { await performDisable() }
-    }
-
-    func restoreSystemSleep() {
-        guard !isBusy else { return }
-        Task {
-            isBusy = true
-            lastError = nil
-            defer { isBusy = false }
-            do {
-                try await power.disableSleepDisabled()
-                staleSleepDisabled = PowerController.isDisableSleepFlagSet()
-            } catch {
-                lastError = Self.message(for: error)
-            }
-        }
     }
 
     /// Synchronous cleanup at quit: restore normal sleep before exit.
@@ -151,7 +158,6 @@ final class AppModel {
             sensor.start()
 
             isEnabled = true
-            staleSleepDisabled = false
         } catch {
             power.stopAwakeAssertions()
             lastError = Self.message(for: error)
@@ -171,10 +177,8 @@ final class AppModel {
 
         do {
             try await power.disableSleepDisabled()
-            staleSleepDisabled = PowerController.isDisableSleepFlagSet()
         } catch {
             lastError = Self.message(for: error)
-            staleSleepDisabled = PowerController.isDisableSleepFlagSet()
         }
 
         if didEnableLowPowerMode {

@@ -6,9 +6,10 @@
 //    · activate / deactivate control in the center
 //    · status text just below the control
 //    · settings gear top-right, "Exit" bottom-right
-//  When active, a pulsing orange glow + orbiting gradient ring animate around
-//  the control — and only while the panel is actually presented (removed
-//  otherwise, so nothing keeps animating in the background).
+//  When active, a selectable glow effect (pulse / circulating / off, chosen in
+//  the About pane) animates around the control — and only while the panel is
+//  actually presented (removed otherwise, so nothing keeps animating in the
+//  background).
 //
 
 import AppKit
@@ -81,8 +82,15 @@ struct ContentView: View {
             VStack(spacing: 14) {
                 ZStack {
                     if model.isEnabled && presenter.isPresented {
-                        activationGlow
-                        activationRing
+                        switch model.buttonEffect {
+                        case "pulse":
+                            activationGlow
+                            activationRing
+                        case "circulate":
+                            circulatingGlow
+                        default:
+                            EmptyView()
+                        }
                     }
 
                     Circle()
@@ -115,6 +123,7 @@ struct ContentView: View {
     /// Pulsing orange glow. Rendered only while activated *and* the panel is on
     /// screen — `presenter.isPresented` removes it the moment the panel is
     /// dismissed, so `TimelineView` stops producing frames (no background work).
+    /// Selected via the About pane's "Activation Glow" → Pulse option.
     private var activationGlow: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
@@ -152,6 +161,38 @@ struct ContentView: View {
                 )
                 .frame(width: 110, height: 110)
                 .shadow(color: .orange.opacity(0.6), radius: 12)
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// Circulating glow: a comet-like orange arc with a fading tail that
+    /// travels around the button (plus a faint track so the motion reads).
+    /// Rendered only while activated *and* the panel is on screen, same as the
+    /// pulse effect. Selected via the About pane's "Activation Glow" →
+    /// Circulate option.
+    private var circulatingGlow: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            let angle = timeline.date.timeIntervalSinceReferenceDate * 115
+            ZStack {
+                Circle()
+                    .stroke(.orange.opacity(0.12), lineWidth: 2)
+                    .frame(width: 110, height: 110)
+
+                Circle()
+                    .trim(from: 0.0, to: 0.25)
+                    .stroke(
+                        AngularGradient(
+                            gradient: Gradient(colors: [.orange.opacity(0), .orange]),
+                            center: .center,
+                            startAngle: .degrees(0),
+                            endAngle: .degrees(90)
+                        ),
+                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                    )
+                    .frame(width: 110, height: 110)
+                    .rotationEffect(.degrees(angle))
+                    .shadow(color: .orange.opacity(0.85), radius: 10)
+            }
         }
         .allowsHitTesting(false)
     }

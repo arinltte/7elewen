@@ -60,6 +60,8 @@ final class MenuBarController: NSObject {
         withObservationTracking {
             _ = AppModel.shared.isEnabled
             _ = AppModel.shared.isBusy
+            _ = AppModel.shared.menuBarIconInactive
+            _ = AppModel.shared.menuBarIconActive
         } onChange: { [weak self] in
             MainActor.assumeIsolated {
                 self?.refreshStatusItem()
@@ -68,14 +70,17 @@ final class MenuBarController: NSObject {
         }
     }
 
-    /// Infinity symbol: thin/neutral when off, bold/orange when active.
+    /// User-selected symbol (defaults to the ∞ app logo): thin/neutral when
+    /// off, bold/orange when active. Falls back to ∞ for unknown symbols.
     private func refreshStatusItem() {
         let model = AppModel.shared
+        let symbol = model.isEnabled ? model.menuBarIconActive : model.menuBarIconInactive
         let weight: NSFont.Weight = model.isEnabled ? .bold : .regular
-        let image = NSImage(
-            systemSymbolName: "infinity",
+        let image = (NSImage(
+            systemSymbolName: symbol,
             accessibilityDescription: "7elewen"
-        )?.withSymbolConfiguration(.init(pointSize: 14, weight: weight))
+        ) ?? NSImage(systemSymbolName: "infinity", accessibilityDescription: "7elewen"))?
+            .withSymbolConfiguration(.init(pointSize: 14, weight: weight))
         statusItem?.button?.image = image
         statusItem?.button?.contentTintColor = model.isEnabled ? .systemOrange : nil
     }

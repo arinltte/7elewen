@@ -18,11 +18,12 @@
 
 ## 🏗️ Features
 
-- **Menu bar native** — Lives quietly in your menu bar as an ∞ symbol. No Dock icon, no persistent window, no interruption to your workflow.
+- **Menu bar native** — Lives quietly in your menu bar as a symbol (the ∞ logo by default). No Dock icon, no persistent window, no interruption to your workflow.
 - **Lid-close sleep override** — Close your MacBook lid without it going to sleep. Your Mac keeps running **24/7**.
 - **Lid-angle sensing** — Reads the built-in lid angle sensor in real time to **auto-dim** the display as the lid closes and **auto-brighten** it as it opens.
 - **Low Power Mode** — Optionally enable Low Power Mode automatically while the lid is closed to save battery, then restore it when you open back up.
 - **Fine-grained control** — Tune exactly when to dim and brighten (in degrees) and how far to dim, all from the settings pane.
+- **Personalization** — Pick the menu-bar symbol for the inactive and activated states (the ∞ logo is the default), and choose the glow around the main button: pulse, circulating, or off.
 
 ---
 
@@ -72,6 +73,14 @@ On first activation, **7elewen** asks for your administrator password **once** t
 | Dim brightness to | 0% – 50% | Brightness level the display dims to. |
 | Low Power Mode when closed | on / off | Enables Low Power Mode while the lid is shut. |
 
+## 🎨 Personalization (About pane)
+
+| Setting | Options | Description |
+| --- | --- | --- |
+| Menu Bar Icon — Off | ∞ / 💤 / 🌙 / 🔌 / ⚡ / ✨ / 🍃 | Menu-bar symbol while deactivated. Defaults to the ∞ logo. |
+| Menu Bar Icon — Active | ∞ / 💤 / 🌙 / 🔌 / ⚡ / ✨ / 🍃 | Menu-bar symbol while activated (shown bold and orange). Defaults to the ∞ logo. |
+| Activation Glow | Pulse / Circulate / Off | Glow animated around the main activate button while active. |
+
 ---
 
 ## 📂 Data & Privacy
@@ -81,7 +90,7 @@ On first activation, **7elewen** asks for your administrator password **once** t
 | Location | Contents |
 | --- | --- |
 | `/etc/sudoers.d/7elewen` | Passwordless rule for `pmset disablesleep` / `lowpowermode` |
-| `~/Library/Preferences/arinltte.-elewen.plist` | App preferences (dim/brighten angles, brightness, Low Power Mode) |
+| `~/Library/Preferences/arinltte.-elewen.plist` | App preferences (dim/brighten angles, brightness, Low Power Mode, menu-bar icons, glow effect, login-item state) |
 
 To perform a complete uninstall and remove all application data:
 

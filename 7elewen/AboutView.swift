@@ -2,9 +2,11 @@
 //  AboutView.swift
 //  7elewen
 //
-//  About pane: app icon, name, version, and a "Check for Update" action that
-//  queries the GitHub releases API. If a release newer than the current version
-//  exists, the button becomes "Update Available" and opens the release page.
+//  About pane: app icon, name, version, a "Check for Update" action that
+//  queries the GitHub releases API, and personalization controls (menu-bar
+//  icon per state + activation glow effect). If a release newer than the
+//  current version exists, the button becomes "Update Available" and opens
+//  the release page.
 //
 
 import AppKit
@@ -13,33 +15,86 @@ import SwiftUI
 struct AboutView: View {
     let onBack: () -> Void
 
+    @Environment(AppModel.self) private var model
     @State private var state: UpdateState = .idle
 
+    /// Symbols offered for the menu bar. "infinity" — the app logo — is the
+    /// default and always available.
+    private static let menuBarIconOptions: [(symbol: String, label: String)] = [
+        ("infinity", "∞ Infinity"),
+        ("zzz", "💤 Sleep"),
+        ("moon.zzz.fill", "🌙 Moon"),
+        ("powerplug", "🔌 Plug"),
+        ("bolt.fill", "⚡ Bolt"),
+        ("sparkles", "✨ Sparkles"),
+        ("leaf", "🍃 Leaf"),
+    ]
+
     var body: some View {
+        @Bindable var model = model
+
         VStack(spacing: 0) {
             PanelHeader(title: "About", leadingAction: onBack)
 
-            Spacer()
-
             Image(nsImage: NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath))
                 .resizable()
-                .frame(width: 88, height: 88)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
+                .padding(.top, 2)
 
             Text("7elewen")
                 .font(.system(size: 18, weight: .semibold))
-                .padding(.top, 14)
+                .padding(.top, 10)
 
             Text("Version \(UpdateChecker.currentVersion)")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-                .padding(.top, 3)
+                .padding(.top, 2)
 
             updateControl
-                .padding(.top, 22)
+                .padding(.top, 12)
+
+            Divider()
+                .padding(.top, 14)
+
+            VStack(spacing: 10) {
+                iconPickerRow("Menu Bar Icon — Off", selection: $model.menuBarIconInactive)
+                iconPickerRow("Menu Bar Icon — Active", selection: $model.menuBarIconActive)
+
+                HStack {
+                    Text("Activation Glow")
+                        .font(.system(size: 12, weight: .medium))
+                    Spacer()
+                    Picker("", selection: $model.buttonEffect) {
+                        Text("Pulse").tag("pulse")
+                        Text("Circulate").tag("circulate")
+                        Text("Off").tag("off")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .controlSize(.small)
+                }
+            }
+            .padding(.top, 12)
 
             Spacer()
+        }
+    }
+
+    private func iconPickerRow(_ title: String, selection: Binding<String>) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+            Spacer()
+            Picker("", selection: selection) {
+                ForEach(Self.menuBarIconOptions, id: \.symbol) { option in
+                    Text(option.label).tag(option.symbol)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .controlSize(.small)
         }
     }
 
@@ -50,6 +105,7 @@ struct AboutView: View {
             Button("Check for Update") {
                 Task { await check() }
             }
+            .controlSize(.small)
         case .checking:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
@@ -75,6 +131,7 @@ struct AboutView: View {
             Button("Check failed — Try again") {
                 Task { await check() }
             }
+            .controlSize(.small)
         }
     }
 
@@ -112,7 +169,7 @@ private enum UpdateState {
 enum UpdateChecker {
     /// Current app version, read from the bundle ("CFBundleShortVersionString").
     static var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.0"
     }
 
     // TODO: point this at your real repository once it is uploaded.
