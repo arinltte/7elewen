@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="7elewen/Assets.xcassets/AppIcon.appiconset/7elewenlogo_1024.png" alt="7elewen Logo" width="64" />
+  <img src="7elewen/Assets.xcassets/AppIcon.appiconset/7elewenlogo.png" alt="7elewen Logo" width="64" />
   <br />
   <h1 align="center">7elewen</h1>
   <p align="center">Stay awake. 24/7</p>
@@ -138,6 +138,10 @@ Build and run the `7elewen` scheme in Xcode. Requires Xcode 26 or later (for the
 ## 📜 License
 
 Distributed under the MIT License. See `LICENSE` for more information.
+
+<p align="center">
+  <i>Logo by GUMO · https://www.instagram.com/gumoooo._/</i>
+</p>
 
 <p align="center">
   <i>Developed by arinltte · arinltte00@gmail.com</i>

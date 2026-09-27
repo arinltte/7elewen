@@ -141,7 +141,7 @@ struct AboutView: View {
             let release = try await UpdateChecker.latestRelease()
             if UpdateChecker.isNewer(release.tagName, than: UpdateChecker.currentVersion) {
                 if let url = URL(string: release.htmlURL) {
-                    state = .available(version: release.tagName, url: url)
+                    state = .available(version: UpdateChecker.stripped(release.tagName), url: url)
                 } else {
                     state = .failed
                 }
@@ -169,7 +169,7 @@ private enum UpdateState {
 enum UpdateChecker {
     /// Current app version, read from the bundle ("CFBundleShortVersionString").
     static var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.1"
     }
 
     // TODO: point this at your real repository once it is uploaded.
@@ -198,6 +198,14 @@ enum UpdateChecker {
         return try JSONDecoder().decode(Release.self, from: data)
     }
 
+    /// Strips a leading "v"/"V" from a release tag (e.g. "v0.3.0" → "0.3.0")
+    /// so GitHub tags never render a doubled "vv" prefix in the UI.
+    static func stripped(_ tag: String) -> String {
+        var t = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.hasPrefix("v") || t.hasPrefix("V") { t.removeFirst() }
+        return t
+    }
+
     /// Compares two semantic-version strings (ignoring a leading "v").
     static func isNewer(_ candidate: String, than current: String) -> Bool {
         let a = components(candidate)
@@ -211,8 +219,7 @@ enum UpdateChecker {
     }
 
     private static func components(_ s: String) -> [Int] {
-        var t = s.trimmingCharacters(in: .whitespacesAndNewlines)
-        if t.hasPrefix("v") || t.hasPrefix("V") { t.removeFirst() }
+        let t = stripped(s)
         return t.split(separator: ".").map {
             Int($0.prefix(while: { $0.isNumber })) ?? 0
         }
