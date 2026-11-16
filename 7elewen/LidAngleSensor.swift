@@ -108,7 +108,9 @@ extension LidAngleSensor {
 }
 
 private enum AppleHID {
-    static func enumerate() -> [IOHIDDevice] {
+    // Explicitly nonisolated: these are pure IOKit FFI helpers, and the Swift 6
+    // compiler otherwise infers main-actor isolation from the enclosing file.
+    nonisolated static func enumerate() -> [IOHIDDevice] {
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         IOHIDManagerSetDeviceMatching(manager, [kIOHIDVendorIDKey: 0x05AC] as CFDictionary)
         IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
@@ -118,11 +120,11 @@ private enum AppleHID {
         return devices
     }
 
-    static func productName(_ device: IOHIDDevice) -> String {
+    nonisolated static func productName(_ device: IOHIDDevice) -> String {
         IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String ?? "unknown"
     }
 
-    static func isLikelyLidSensor(_ device: IOHIDDevice) -> Bool {
+    nonisolated static func isLikelyLidSensor(_ device: IOHIDDevice) -> Bool {
         let name = productName(device).lowercased()
         if name.contains("lid") || name.contains("angle") || name.contains("als") { return true }
         let usagePage = (IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsagePageKey as CFString) as? NSNumber)?.intValue ?? 0
@@ -133,12 +135,12 @@ private enum AppleHID {
         return usagePage == 0x20 && usage == 0x8A
     }
 
-    static func isInputSurface(_ device: IOHIDDevice) -> Bool {
+    nonisolated static func isInputSurface(_ device: IOHIDDevice) -> Bool {
         let name = productName(device).lowercased()
         return name.contains("keyboard") || name.contains("trackpad") || name.contains("mouse")
     }
 
-    static func probeAngle(_ device: IOHIDDevice) -> Double? {
+    nonisolated static func probeAngle(_ device: IOHIDDevice) -> Double? {
         let options = IOOptionBits(kIOHIDOptionsTypeNone)
         guard IOHIDDeviceOpen(device, options) == kIOReturnSuccess else { return nil }
         defer { IOHIDDeviceClose(device, options) }

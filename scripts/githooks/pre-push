@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# 7elewen pre-push guardrail — the cheap, always-available equivalent of the
+# release pre-flight (see the xcode-release skill, Step 0):
+#
+#   1. the repo's security audit must find no CRITICAL/HIGH findings
+#   2. a Debug build must succeed with zero compiler warnings
+#
+# Bypass a single push when you know what you are doing:
+#     git push --no-verify      (or SKIP_CHECKS=1 git push ...)
+
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+if [ -n "${SKIP_CHECKS:-}" ]; then
+    echo "pre-push: SKIP_CHECKS set, running no checks."
+    exit 0
+fi
+
+echo "pre-push: security audit…"
+if ! bash scripts/security-audit.sh . >/tmp/pre-push-audit.log 2>&1; then
+    tail -30 /tmp/pre-push-audit.log
+    echo "pre-push: security audit FAILED — resolve CRITICAL/HIGH, or push with --no-verify."
+    exit 1
+fi
+echo "pre-push: security audit PASS ($(grep -E 'CRITICAL|VERDICT' /tmp/pre-push-audit.log | tail -1))"
+
+echo "pre-push: Debug build (must be warning-free)…"
+out="$(xcodebuild -project 7elewen.xcodeproj -scheme 7elewen \
+    -configuration Debug build CODE_SIGNING_ALLOWED=NO 2>&1)"
+if ! grep -q '\*\* BUILD SUCCEEDED \*\*' <<<"$out"; then
+    tail -25 <<<"$out"
+    echo "pre-push: build FAILED."
+    exit 1
+fi
+# Match Swift compiler diagnostics only (file:line:col: warning: …). Build
+# tools also print "warning:" notes (e.g. appintentsmetadataprocessor) that are
+# not compiler warnings.
+if grep -qE '[^[:space:]]+\.swift:[0-9]+:[0-9]+: warning:' <<<"$out"; then
+    grep -E '[^[:space:]]+\.swift:[0-9]+:[0-9]+: warning:' <<<"$out"
+    echo "pre-push: build has compiler warnings — fix them, or push with --no-verify."
+    exit 1
+fi
+
+echo "pre-push: OK — audit clean, build succeeded with no warnings."
