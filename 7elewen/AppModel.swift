@@ -26,15 +26,16 @@ final class AppModel {
 
     // MARK: User settings (persisted + observable)
 
-    /// Lid angle (degrees) at or below which the display dims. Range 0…30°.
-    var dimAngle: Double = min(max(load("dimAngle", fallback: 4.0), 0), 30) {
-        didSet { UserDefaults.standard.set(dimAngle, forKey: "dimAngle") }
-    }
-
-    /// Lid angle (degrees) at or above which the display brightens again.
-    /// Range 1…30°, kept above `dimAngle` so the two can never coincide.
-    var brightenAngle: Double = min(max(load("brightenAngle", fallback: 20.0), 1), 30) {
-        didSet { UserDefaults.standard.set(brightenAngle, forKey: "brightenAngle") }
+    /// Single lid-angle threshold (degrees): the display dims once the lid
+    /// closes past this angle and brightens again once it opens past it — with
+    /// 1° of hidden hysteresis on each side (see `closeThreshold`/
+    /// `openThreshold`) so the lid hovering right at the setting can't
+    /// flicker the display. Range 1…100°.
+    ///
+    /// Stored under its own key: the v0.3.x `dimAngle`/`brightenAngle` pair had
+    /// different semantics, so old values are reset rather than carried over.
+    var dimThreshold: Double = min(max(load("dimThreshold", fallback: 20.0), 1), 100) {
+        didSet { UserDefaults.standard.set(dimThreshold, forKey: "dimThreshold") }
     }
 
     /// Brightness level (0…50%) the display dims to while the lid is shut.
@@ -74,6 +75,13 @@ final class AppModel {
 
     private var savedBrightness: Float = 0.6
     private var wasLidClosed = false
+    /// macOS ramps display brightness over roughly a second, so a reading taken
+    /// mid-ramp is an intermediate value (e.g. 40% while the display is on its
+    /// way to 50%). Capture is paused until the display settles — otherwise the
+    /// app would remember the intermediate value and restore *that* on the next
+    /// lid cycle instead of the level the user chose.
+    private var brightnessSettleUntil: Date?
+
     /// Persisted (not just in-memory) so a crashed run — which never reaches
     /// `shutdown()` — can reconcile Low Power Mode at next launch: true iff
     /// *this* app enabled it for a closed lid.
@@ -81,17 +89,40 @@ final class AppModel {
         didSet { UserDefaults.standard.set(didEnableLowPowerMode, forKey: "didEnableLowPowerMode") }
     }
 
+    /// How long to wait for the display to finish a brightness transition.
+    private static let brightnessSettleInterval: TimeInterval = 2.5
+
     var detailText: String {
         if let error = lastError { return error }
-        return isEnabled ? "You're good to go 24/7" : "Macbook will enter sleep mode if lid close"
+        guard isEnabled else { return "Macbook will enter sleep mode if lid close" }
+        return lidClosed ? "Lid closed — display dimmed" : "You're good to go 24/7"
     }
 
-    /// The open threshold, with a guaranteed minimum hysteresis above `dimAngle`.
-    private var effectiveOpenThreshold: Double {
-        max(brightenAngle, dimAngle + 5)
+    /// Whether the display has finished a brightness transition, so its current
+    /// reading can be trusted as the user's chosen level.
+    private var isBrightnessSettled: Bool {
+        guard let deadline = brightnessSettleUntil else { return true }
+        return Date.now >= deadline
     }
+
+    /// Hidden hysteresis (degrees) around `dimThreshold`.
+    private let hysteresis = 1.0
+
+    /// The display dims once the lid closes past this angle.
+    private var closeThreshold: Double { dimThreshold - hysteresis }
+
+    /// The display brightens again once the lid opens past this angle.
+    private var openThreshold: Double { dimThreshold + hysteresis }
 
     init() {
+        // v0.4.0 replaced the two-angle settings (`dimAngle` + `brightenAngle`)
+        // with a single threshold whose meaning differs, so existing installs
+        // reset to the new default instead of carrying over a stale value.
+        if UserDefaults.standard.object(forKey: "brightenAngle") != nil {
+            UserDefaults.standard.removeObject(forKey: "dimAngle")
+            UserDefaults.standard.removeObject(forKey: "brightenAngle")
+        }
+
         // Crash safety net: `disablesleep` and `lowpowermode` are persistent
         // system settings that survive force-quit, kernel panic, dead battery
         // and reboot — all paths that never reach `shutdown()`. Reconcile them
@@ -138,6 +169,13 @@ final class AppModel {
     // MARK: Enable / disable
 
     private func performEnable() async {
+        // Fail fast (and loudly — `lastError` drives the panel text and the
+        // menu-bar warning icon) instead of silently sitting there responding
+        // to nothing if the HID sensor couldn't be located.
+        guard sensor.hasDevice else {
+            lastError = "Lid angle sensor not found on this Mac."
+            return
+        }
         isBusy = true
         lastError = nil
         defer { isBusy = false }
@@ -153,8 +191,14 @@ final class AppModel {
             sensor.onAngleChange = { [weak self] angle in
                 self?.react(toAngle: angle)
             }
-            wasLidClosed = sensor.angle <= dimAngle
+            wasLidClosed = sensor.angle <= closeThreshold
             lidClosed = wasLidClosed
+            if wasLidClosed {
+                // Enabled while the lid is already shut: dim straight away
+                // instead of waiting for the next close/open cycle.
+                brightness.set(Float(dimBrightness) / 100.0)
+                brightnessSettleUntil = Date.now.addingTimeInterval(Self.brightnessSettleInterval)
+            }
             sensor.start()
 
             isEnabled = true
@@ -194,10 +238,19 @@ final class AppModel {
     // MARK: Lid reaction
 
     private func react(toAngle angle: Double) {
-        if !wasLidClosed && angle <= dimAngle {
+        // Mirror the live system brightness while the lid is open, so that after
+        // any dim cycle the display returns to exactly the level the user last
+        // chose — not the level captured when the feature was enabled, and never
+        // the dimmed level itself.
+        if !wasLidClosed, let current = brightness.current(), isBrightnessSettled {
+            savedBrightness = current
+        }
+
+        if !wasLidClosed && angle <= closeThreshold {
             wasLidClosed = true
             lidClosed = true
             brightness.set(Float(dimBrightness) / 100.0)
+            brightnessSettleUntil = Date.now.addingTimeInterval(Self.brightnessSettleInterval)
             Self.logger.info("Lid closed (angle \(angle, format: .fixed(precision: 1))) — dimming to \(self.dimBrightness, format: .fixed(precision: 0))%")
             if lowPowerModeWhenClosed {
                 Task {
@@ -206,10 +259,11 @@ final class AppModel {
                     }
                 }
             }
-        } else if wasLidClosed && angle >= effectiveOpenThreshold {
+        } else if wasLidClosed && angle >= openThreshold {
             wasLidClosed = false
             lidClosed = false
             brightness.set(savedBrightness)
+            brightnessSettleUntil = Date.now.addingTimeInterval(Self.brightnessSettleInterval)
             Self.logger.info("Lid opened (angle \(angle, format: .fixed(precision: 1))) — restoring brightness")
             if didEnableLowPowerMode {
                 didEnableLowPowerMode = false

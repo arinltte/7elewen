@@ -2,11 +2,10 @@
 //  SettingsView.swift
 //  7elewen
 //
-//  Settings pane: lid-angle thresholds for auto dim/brighten, the dim target
-//  brightness, and optional Low Power Mode while the lid is shut. An "About"
-//  icon in the top-right opens the About pane, which also holds the menu-bar
-//  icon and activation-glow personalization. The dim and brighten thresholds
-//  are kept at least one degree apart so they can never coincide.
+//  Settings pane: a single lid-angle threshold (the display dims below it and
+//  brightens back above it), the dim target brightness, and optional Low Power
+//  Mode while the lid is shut. An "About" icon in the top-right opens the About
+//  pane, which also holds the menu-bar icon and activation-glow personalization.
 //
 
 import SwiftUI
@@ -32,8 +31,13 @@ struct SettingsView: View {
                         trailingLabel: "About"
                     )
 
-                    slider("Dim when lid closes", value: $model.dimAngle, range: 0...30, suffix: "°")
-                    slider("Brighten when lid opens", value: $model.brightenAngle, range: 1...30, suffix: "°")
+                    slider(
+                        "Dim below",
+                        value: $model.dimThreshold,
+                        range: 1...100,
+                        suffix: "°",
+                        caption: "The screen dims as the lid closes past this angle, and turns back on once it opens past it."
+                    )
                     slider("Dim brightness to", value: $model.dimBrightness, range: 0...50, suffix: "%")
 
                     Divider()
@@ -50,16 +54,6 @@ struct SettingsView: View {
 
                     Spacer(minLength: 0)
                 }
-                .onChange(of: model.dimAngle) { _, newValue in
-                    if model.brightenAngle <= newValue + 1 {
-                        model.brightenAngle = min(newValue + 1, 30)
-                    }
-                }
-                .onChange(of: model.brightenAngle) { _, newValue in
-                    if model.dimAngle >= newValue - 1 {
-                        model.dimAngle = max(newValue - 1, 0)
-                    }
-                }
             }
         }
     }
@@ -68,9 +62,10 @@ struct SettingsView: View {
         _ title: String,
         value: Binding<Double>,
         range: ClosedRange<Double>,
-        suffix: String
+        suffix: String,
+        caption: String? = nil
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: caption == nil ? 6 : 4) {
             HStack {
                 Text(title)
                     .font(.system(size: 12.5))
@@ -82,6 +77,12 @@ struct SettingsView: View {
             }
             Slider(value: value, in: range, step: 1)
                 .controlSize(.small)
+            if let caption {
+                Text(caption)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

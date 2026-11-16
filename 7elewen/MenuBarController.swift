@@ -60,6 +60,7 @@ final class MenuBarController: NSObject {
         withObservationTracking {
             _ = AppModel.shared.isEnabled
             _ = AppModel.shared.isBusy
+            _ = AppModel.shared.lastError
             _ = AppModel.shared.menuBarIconInactive
             _ = AppModel.shared.menuBarIconActive
         } onChange: { [weak self] in
@@ -71,18 +72,33 @@ final class MenuBarController: NSObject {
     }
 
     /// User-selected symbol (defaults to the ∞ app logo): thin/neutral when
-    /// off, bold/orange when active. Falls back to ∞ for unknown symbols.
+    /// off, bold when active. An unsatisfied error (e.g. a dismissed
+    /// admin prompt) is signalled with a warning triangle so a failed toggle
+    /// is visible instead of silently doing nothing. Falls back to ∞ for
+    /// unknown symbols.
+    ///
+    /// The icon is always drawn as a plain template and never tinted: a
+    /// template image is recoloured by the menu bar itself, so it follows the
+    /// system appearance — white in the dark menu bar, black in the light one,
+    /// exactly like the neighbouring battery icon. Painting any colour via
+    /// `contentTintColor` is not an option: on macOS 26+ the button then draws
+    /// template symbols in solid black regardless of the tint colour (verified
+    /// by rendering real status items on macOS 27.2), which is why the icon
+    /// used to look black.
     private func refreshStatusItem() {
         let model = AppModel.shared
-        let symbol = model.isEnabled ? model.menuBarIconActive : model.menuBarIconInactive
+        let symbol = model.lastError != nil
+            ? "exclamationmark.triangle.fill"
+            : model.isEnabled ? model.menuBarIconActive : model.menuBarIconInactive
         let weight: NSFont.Weight = model.isEnabled ? .bold : .regular
         let image = (NSImage(
             systemSymbolName: symbol,
             accessibilityDescription: "7elewen"
         ) ?? NSImage(systemSymbolName: "infinity", accessibilityDescription: "7elewen"))?
             .withSymbolConfiguration(.init(pointSize: 14, weight: weight))
+        image?.isTemplate = true
         statusItem?.button?.image = image
-        statusItem?.button?.contentTintColor = model.isEnabled ? .systemOrange : nil
+        statusItem?.button?.contentTintColor = nil
     }
 
     // MARK: Panel

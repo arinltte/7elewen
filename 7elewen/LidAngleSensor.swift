@@ -25,6 +25,12 @@ final class LidAngleSensor {
     /// Invoked on the main actor whenever a fresh angle is read.
     var onAngleChange: ((Double) -> Void)?
 
+    /// Whether a lid-sensor HID device was found.
+    var hasDevice: Bool { hidDevice != nil }
+
+    /// Whether polling is currently active.
+    var isRunning: Bool { timer != nil }
+
 
     // nonisolated(unsafe) so deinit can reach these from its nonisolated context.
     @ObservationIgnored nonisolated(unsafe) private var hidDevice: IOHIDDevice?
